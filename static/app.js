@@ -552,12 +552,146 @@ const populateSelect = (selectId, items, valueKey, labelFn, placeholder = '— s
   if (current) sel.value = current;
 };
 
+// ── PWA ───────────────────────────────────────────────────────────────────────
+
+let _deferredPrompt = null;
+
+/** True when running as installed PWA (standalone / fullscreen mode). */
+const isPWA = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+/** True when running on iOS Safari (no beforeinstallprompt). */
+const isIOS = () =>
+  /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+
+/** Register the service worker so the app works offline and is installable. */
+const registerServiceWorker = async () => {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/service-worker.js', {
+      scope: '/',
+      updateViaCache: 'none',
+    });
+    console.log('[PWA] Service worker registered, scope:', reg.scope);
+
+    // Check for updates whenever the page loads
+    reg.addEventListener('updatefound', () => {
+      const worker = reg.installing;
+      worker?.addEventListener('statechange', () => {
+        if (worker.statechange === 'installed' && navigator.serviceWorker.controller) {
+          toast('App updated — reload to get the latest version.', 5000);
+        }
+      });
+    });
+
+    // Listen for the SW telling us to refresh job statuses (after reconnect)
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data?.type === 'SYNC_STATUS') {
+        loadGallery();
+      }
+    });
+  } catch (err) {
+    console.warn('[PWA] Service worker registration failed:', err);
+  }
+};
+
+/** Called by the "Install" button in the banner. */
+const installPWA = async () => {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  const { outcome } = await _deferredPrompt.userChoice;
+  _deferredPrompt = null;
+  el('pwa-banner').classList.add('hidden');
+  if (outcome === 'accepted') {
+    toast('Installing… check your home screen!');
+  }
+};
+
+/** Dismiss the install banner and remember the choice. */
+const dismissInstallBanner = () => {
+  el('pwa-banner').classList.add('hidden');
+  localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+};
+
+const _showInstallBanner = () => {
+  const dismissed = localStorage.getItem('pwa-install-dismissed');
+  // Don't re-show within 7 days of dismissal
+  if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
+  if (!isPWA()) el('pwa-banner').classList.remove('hidden');
+};
+
+// Browser fires this when the app is installable (Chrome/Edge/Android)
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  _showInstallBanner();
+});
+
+// After installation completes
+window.addEventListener('appinstalled', () => {
+  el('pwa-banner').classList.add('hidden');
+  _deferredPrompt = null;
+  toast('🎉 Creative Video Studio installed on your home screen!');
+});
+
+/** Show iOS-specific "Add to Home Screen" instructions. */
+const showIOSInstallInstructions = () => {
+  el('ios-install-sheet').classList.remove('hidden');
+};
+
+// ── Settings tab: PWA install section ────────────────────────────────────────
+const updatePWASettingsBlock = () => {
+  const block = el('pwa-settings-block');
+  if (!block) return;
+
+  if (isPWA()) {
+    block.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="status-dot dot-ok"></span>
+        <span style="color:#4ade80; font-weight:600;">Running as installed app</span>
+      </div>
+      <div class="text-xs mt-1" style="color:#963f16;">You're using the full PWA experience.</div>
+    `;
+  } else if (isIOS()) {
+    block.innerHTML = `
+      <div class="text-sm mb-2" style="color:#e8af6c;">Install on iPhone / iPad</div>
+      <div class="text-xs mb-3" style="color:#963f16;">Tap below for step-by-step Safari instructions.</div>
+      <button class="btn-primary w-full" onclick="showIOSInstallInstructions()">📲 How to Install on iOS</button>
+    `;
+  } else if (_deferredPrompt) {
+    block.innerHTML = `
+      <div class="text-sm mb-2" style="color:#e8af6c;">Install on your device</div>
+      <div class="text-xs mb-3" style="color:#963f16;">Add to home screen for full-screen, offline access.</div>
+      <button class="btn-primary w-full" onclick="installPWA()">📲 Add to Home Screen</button>
+    `;
+  } else {
+    block.innerHTML = `
+      <div class="text-xs" style="color:#963f16;">
+        Open in Chrome or Edge on Android for "Add to Home Screen" support.
+        On iPhone, use Safari and tap the Share button → Add to Home Screen.
+      </div>
+    `;
+  }
+};
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
+  // Register service worker first (non-blocking)
+  registerServiceWorker();
+
+  // Handle URL params for shortcuts (e.g. /?tab=generate)
+  const tabParam = new URLSearchParams(location.search).get('tab');
+  if (tabParam) showTab(tabParam);
+
   await loadHealth();
   await loadDashboard();
-  // Start polling for any in-progress videos on page load
+
+  // Resume polling for in-progress videos
   const videos = await api('/api/videos').catch(() => []);
   state.videos = videos;
   videos.filter(v => !['completed','failed'].includes(v.status)).forEach(v => startPolling(v.id));
+
+  // Update PWA install block in Settings (after _deferredPrompt might have fired)
+  setTimeout(updatePWASettingsBlock, 500);
 })();

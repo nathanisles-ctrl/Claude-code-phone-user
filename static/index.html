@@ -4,6 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Creative Video Studio</title>
+
+  <!-- PWA meta tags -->
+  <meta name="theme-color" content="#e8a76a" />
+  <meta name="description" content="Professional video generation studio — Notion integration, Higgsfield AI video, ElevenLabs voiceover, auto-captions." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Video Studio" />
+  <!-- Windows tile -->
+  <meta name="msapplication-TileColor" content="#1a1108" />
+  <meta name="msapplication-TileImage" content="/static/icons/icon-192.png" />
+
+  <!-- PWA manifest & icons -->
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/icons/icon-512.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -362,6 +380,12 @@
       <div id="notion-setup-status" class="text-xs" style="color:#e8af6c;"></div>
     </div>
 
+    <!-- PWA Install -->
+    <div class="card p-4 space-y-3">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">📲 Install App</h3>
+      <div id="pwa-settings-block" class="text-xs" style="color:#963f16;">Checking…</div>
+    </div>
+
     <!-- Info -->
     <div class="card p-4 text-xs space-y-1" style="color:#963f16;">
       <div class="font-semibold mb-1" style="color:#e8af6c;">Accessing from your phone</div>
@@ -373,6 +397,46 @@
   </section>
 
 </main>
+
+<!-- PWA install banner (shown by app.js when browser fires beforeinstallprompt) -->
+<div id="pwa-banner" class="hidden" style="
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: #2c1f14; border-top: 1px solid #963f16;
+  padding: 14px 16px; box-shadow: 0 -4px 20px rgba(0,0,0,0.4);">
+  <div style="max-width:640px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img src="/static/icons/icon-192.png" width="40" height="40" style="border-radius:10px;" alt="" />
+      <div>
+        <div style="font-weight:700; font-size:0.9rem; color:#e8af6c;">Install Video Studio</div>
+        <div style="font-size:0.75rem; color:#963f16;">Add to home screen for the best experience</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <button onclick="installPWA()" class="btn-primary" style="padding:8px 16px; font-size:0.85rem;">📲 Install</button>
+      <button onclick="dismissInstallBanner()" class="btn-secondary" style="padding:8px 12px; font-size:0.85rem;">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- iOS install instructions sheet (Safari doesn't fire beforeinstallprompt) -->
+<div id="ios-install-sheet" class="hidden" style="
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: #2c1f14; border-top: 2px solid #d07020;
+  padding: 20px 20px 32px; border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.6);">
+  <div style="max-width:480px; margin:0 auto; text-align:center;">
+    <div style="width:40px; height:4px; background:#963f16; border-radius:2px; margin:0 auto 16px;"></div>
+    <img src="/static/icons/icon-192.png" width="56" height="56" style="border-radius:14px; margin-bottom:12px;" alt="" />
+    <div style="font-size:1.1rem; font-weight:700; color:#e8a76a; margin-bottom:8px;">Add to Home Screen</div>
+    <div style="font-size:0.85rem; color:#c0a080; line-height:1.7; margin-bottom:16px;">
+      Tap the <strong style="color:#e8af6c;">Share</strong> button
+      <span style="font-size:1.1em;">⎙</span> in Safari,<br>
+      then choose <strong style="color:#e8af6c;">"Add to Home Screen"</strong>
+    </div>
+    <button onclick="document.getElementById('ios-install-sheet').classList.add('hidden')"
+      class="btn-secondary" style="width:100%; padding:12px;">Got it</button>
+  </div>
+</div>
 
 <script src="/static/app.js"></script>
 </body>
