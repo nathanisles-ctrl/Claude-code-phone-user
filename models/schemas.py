@@ -164,6 +164,8 @@ class VideoGenerationResponse(BaseModel):
 
 
 class VideoResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     id: int
     scene_id: int
     file_path: str
