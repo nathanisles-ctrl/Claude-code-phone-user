@@ -2,37 +2,378 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Creative Video Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            clay:   { 50:'#fdf6ee', 100:'#f9e8d2', 200:'#f2cfa4', 300:'#e8af6c', 400:'#df8f3e', 500:'#d07020', 600:'#b85618', 700:'#963f16', 800:'#7a3218', 900:'#632917' },
+            rust:   { 400:'#c0604a', 500:'#a8432a', 600:'#8c3420', 700:'#6f2517' },
+            gold:   { 300:'#f0c866', 400:'#e8b040', 500:'#d09820' },
+            bark:   { 800:'#2c1f14', 900:'#1a1108', 950:'#0f0a05' },
+          }
+        }
+      }
+    };
+  </script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f0f0f;
-      color: #f0f0f0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-    p { color: #aaa; margin-bottom: 2rem; text-align: center; }
-    a {
-      color: #7c6af7;
-      text-decoration: none;
-      border: 1px solid #7c6af7;
-      padding: 0.6rem 1.4rem;
-      border-radius: 8px;
-      transition: background 0.2s;
-    }
-    a:hover { background: #7c6af722; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { background: #1a1108; color: #f9e8d2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .tab-active { background: #d07020; color: #fff; }
+    .tab-inactive { background: #2c1f14; color: #e8af6c; }
+    .card { background: #2c1f14; border: 1px solid #963f16; border-radius: 12px; }
+    .input { background: #1a1108; border: 1px solid #7a3218; border-radius: 8px; color: #f9e8d2; padding: 10px 14px; width: 100%; outline: none; }
+    .input:focus { border-color: #d07020; box-shadow: 0 0 0 2px rgba(208,112,32,0.25); }
+    .btn-primary { background: #d07020; color: #fff; border-radius: 8px; padding: 10px 20px; font-weight: 600; border: none; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: #b85618; }
+    .btn-primary:disabled { background: #7a3218; opacity: 0.6; cursor: not-allowed; }
+    .btn-secondary { background: #2c1f14; color: #e8af6c; border: 1px solid #7a3218; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-secondary:hover { background: #3c2a18; }
+    .badge { border-radius: 9999px; padding: 2px 10px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    .badge-pending  { background:#3c2a18; color:#e8af6c; }
+    .badge-generating { background:#4a3010; color:#f0c866; }
+    .badge-completed { background:#0f2a10; color:#4ade80; }
+    .badge-failed { background:#2a0f0f; color:#f87171; }
+    .badge-draft  { background:#2a2020; color:#c0c0c0; }
+    .badge-ready  { background:#102040; color:#60a5fa; }
+    select { background: #1a1108; border: 1px solid #7a3218; border-radius: 8px; color: #f9e8d2; padding: 10px 14px; width: 100%; outline: none; }
+    select:focus { border-color: #d07020; }
+    textarea { background: #1a1108; border: 1px solid #7a3218; border-radius: 8px; color: #f9e8d2; padding: 10px 14px; width: 100%; outline: none; resize: vertical; min-height: 90px; }
+    textarea:focus { border-color: #d07020; }
+    label { color: #e8af6c; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.03em; display: block; margin-bottom: 4px; }
+    .spinner { border: 3px solid #3c2a18; border-top-color: #d07020; border-radius: 50%; width: 22px; height: 22px; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-ok { background: #4ade80; }
+    .dot-warn { background: #f0c866; }
+    .dot-err { background: #f87171; }
+    .progress-bar { height: 4px; background: #3c2a18; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #d07020, #f0c866); border-radius: 2px; transition: width 0.4s; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2c1f14; border: 1px solid #963f16; border-radius: 10px; padding: 12px 22px; color: #f9e8d2; font-size: 0.88rem; z-index: 9999; box-shadow: 0 4px 24px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+    video { width: 100%; border-radius: 8px; background: #0f0a05; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #1a1108; } ::-webkit-scrollbar-thumb { background: #7a3218; border-radius: 2px; }
   </style>
 </head>
-<body>
-  <h1>Creative Video Studio</h1>
-  <p>Your AI-powered video generation workspace</p>
-  <a href="/docs">Open API Docs</a>
+<body class="min-h-screen">
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Header -->
+<header class="sticky top-0 z-50" style="background:#1a1108; border-bottom:1px solid #3c2a18;">
+  <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div>
+      <h1 class="font-bold text-lg" style="color:#e8af6c;">🎬 Creative Video Studio</h1>
+      <p id="statusLine" class="text-xs" style="color:#963f16;">Loading…</p>
+    </div>
+    <div class="flex gap-2">
+      <div id="dot-higgsfield" class="status-dot dot-warn" title="Higgsfield"></div>
+      <div id="dot-elevenlabs" class="status-dot dot-warn" title="ElevenLabs"></div>
+      <div id="dot-notion"     class="status-dot dot-warn" title="Notion"></div>
+    </div>
+  </div>
+</header>
+
+<!-- Tab bar -->
+<nav class="sticky z-40" style="top:56px; background:#1a1108; border-bottom:1px solid #3c2a18;">
+  <div class="max-w-2xl mx-auto flex overflow-x-auto gap-1 px-2 py-2" style="scrollbar-width:none;">
+    <button onclick="showTab('dashboard')"  class="tab-btn tab-active   rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="dashboard">Dashboard</button>
+    <button onclick="showTab('projects')"   class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="projects">Projects</button>
+    <button onclick="showTab('characters')" class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="characters">Characters</button>
+    <button onclick="showTab('scenes')"     class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="scenes">Scenes</button>
+    <button onclick="showTab('generate')"   class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="generate">Generate</button>
+    <button onclick="showTab('gallery')"    class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="gallery">Gallery</button>
+    <button onclick="showTab('settings')"   class="tab-btn tab-inactive rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap" data-tab="settings">Settings</button>
+  </div>
+</nav>
+
+<!-- Main content -->
+<main class="max-w-2xl mx-auto px-4 py-5 pb-24">
+
+  <!-- ── Dashboard ───────────────────────────────────────────────────────── -->
+  <section id="tab-dashboard" class="section active space-y-4">
+    <h2 class="text-xl font-bold" style="color:#f0c866;">Overview</h2>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="card p-4 text-center">
+        <div id="stat-projects" class="text-3xl font-bold" style="color:#d07020;">—</div>
+        <div class="text-xs mt-1" style="color:#e8af6c;">Projects</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div id="stat-scenes" class="text-3xl font-bold" style="color:#d07020;">—</div>
+        <div class="text-xs mt-1" style="color:#e8af6c;">Scenes</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div id="stat-videos" class="text-3xl font-bold" style="color:#d07020;">—</div>
+        <div class="text-xs mt-1" style="color:#e8af6c;">Videos</div>
+      </div>
+    </div>
+
+    <!-- Quick generate -->
+    <div class="card p-4 space-y-3">
+      <h3 class="font-semibold" style="color:#e8af6c;">Quick Generate</h3>
+      <div>
+        <label>Scene</label>
+        <select id="qs-scene"></select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label>Model</label>
+          <select id="qs-model">
+            <option value="auto">Auto (recommended)</option>
+            <option value="veo3">Veo 3 — Dialogue</option>
+            <option value="seedance2">Seedance 2 — Action</option>
+            <option value="kling3">Kling 3.0 — Transition</option>
+            <option value="sora2">Sora 2 — Montage</option>
+            <option value="higgsfield">Higgsfield</option>
+          </select>
+        </div>
+        <div>
+          <label>Resolution</label>
+          <select id="qs-res">
+            <option value="1080p">1080p</option>
+            <option value="720p">720p</option>
+            <option value="4k">4K</option>
+            <option value="480p">480p</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" id="qs-vo" checked class="accent-orange-500" /> Voiceover
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" id="qs-cap" checked class="accent-orange-500" /> Captions
+        </label>
+      </div>
+      <button class="btn-primary w-full" onclick="quickGenerate()">🚀 Generate Video</button>
+      <div id="qs-status" class="hidden text-sm" style="color:#e8af6c;"></div>
+    </div>
+
+    <!-- Recent videos -->
+    <div class="card p-4">
+      <h3 class="font-semibold mb-3" style="color:#e8af6c;">Recent Videos</h3>
+      <div id="recent-videos" class="space-y-2 text-sm" style="color:#963f16;">Loading…</div>
+    </div>
+  </section>
+
+  <!-- ── Projects ──────────────────────────────────────────────────────────── -->
+  <section id="tab-projects" class="section space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold" style="color:#f0c866;">Projects</h2>
+      <button class="btn-primary text-sm" onclick="toggleForm('proj-form')">+ New</button>
+    </div>
+
+    <div id="proj-form" class="card p-4 space-y-3 hidden">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Project</h3>
+      <div><label>Name</label><input class="input" id="proj-name" placeholder="My Short Film" /></div>
+      <div><label>Description</label><textarea id="proj-desc" placeholder="A brief description…"></textarea></div>
+      <button class="btn-primary w-full" onclick="createProject()">Create Project</button>
+    </div>
+
+    <div id="projects-list" class="space-y-3"></div>
+  </section>
+
+  <!-- ── Characters ──────────────────────────────────────────────────────── -->
+  <section id="tab-characters" class="section space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold" style="color:#f0c866;">Characters</h2>
+      <button class="btn-primary text-sm" onclick="toggleForm('char-form')">+ New</button>
+    </div>
+
+    <div id="char-form" class="card p-4 space-y-3 hidden">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Character</h3>
+      <div><label>Project</label><select id="char-project"></select></div>
+      <div><label>Name</label><input class="input" id="char-name" placeholder="Character name" /></div>
+      <div><label>Description</label><textarea id="char-desc" placeholder="Appearance, personality…"></textarea></div>
+      <div><label>ElevenLabs Voice ID</label><input class="input" id="char-voice" placeholder="21m00Tcm4TlvDq8ikWAM" /></div>
+      <div><label>Reference Image URL</label><input class="input" id="char-img" placeholder="https://…" /></div>
+      <button class="btn-primary w-full" onclick="createCharacter()">Save Character</button>
+    </div>
+
+    <!-- Voice picker helper -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold" style="color:#e8af6c;">Available Voices</span>
+        <button class="btn-secondary text-xs px-3 py-1" onclick="loadVoices()">Load</button>
+      </div>
+      <div id="voices-list" class="text-xs space-y-1" style="color:#963f16;">Click Load to fetch ElevenLabs voices</div>
+    </div>
+
+    <div id="characters-list" class="space-y-3"></div>
+  </section>
+
+  <!-- ── Scenes ───────────────────────────────────────────────────────────── -->
+  <section id="tab-scenes" class="section space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold" style="color:#f0c866;">Scenes</h2>
+      <button class="btn-primary text-sm" onclick="toggleForm('scene-form')">+ New</button>
+    </div>
+
+    <div id="scene-form" class="card p-4 space-y-3 hidden">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Scene</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label>Project</label><select id="scene-project"></select></div>
+        <div><label>Character</label><select id="scene-character"><option value="">None</option></select></div>
+      </div>
+      <div><label>Title</label><input class="input" id="scene-title" placeholder="Opening sequence…" /></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label>Scene Type</label>
+          <select id="scene-type" onchange="autoSelectModel()">
+            <option value="dialogue">Dialogue</option>
+            <option value="action">Action</option>
+            <option value="transition">Transition</option>
+            <option value="voiceover">Voiceover</option>
+            <option value="montage">Montage</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div>
+          <label>Auto Model</label>
+          <input class="input" id="scene-model-hint" readonly style="background:#111; color:#e8af6c;" value="veo3" />
+        </div>
+      </div>
+      <div>
+        <label>Script / Prompt</label>
+        <textarea id="scene-script" placeholder='[Character]: "Hello world"\n\nOr just describe the scene…' style="min-height:120px;"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label>Duration (s)</label><input class="input" id="scene-duration" type="number" value="5" min="1" max="60" /></div>
+        <div>
+          <label>Resolution</label>
+          <select id="scene-res">
+            <option value="1080p">1080p</option>
+            <option value="720p">720p</option>
+            <option value="4k">4K</option>
+            <option value="480p">480p</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary w-full" onclick="createScene()">Save Scene</button>
+    </div>
+
+    <div id="scenes-list" class="space-y-3"></div>
+  </section>
+
+  <!-- ── Generate ─────────────────────────────────────────────────────────── -->
+  <section id="tab-generate" class="section space-y-4">
+    <h2 class="text-xl font-bold" style="color:#f0c866;">Generate Video</h2>
+
+    <div class="card p-4 space-y-4">
+      <div>
+        <label>Select Scene</label>
+        <select id="gen-scene"></select>
+      </div>
+
+      <div class="card p-3 text-xs space-y-1" style="border-color:#4a3010; background:#1a1108;">
+        <div id="gen-scene-preview" style="color:#963f16;">← Select a scene to preview its script</div>
+      </div>
+
+      <div>
+        <label>Video Model</label>
+        <select id="gen-model">
+          <option value="auto">Auto (based on scene type)</option>
+          <option value="veo3">Veo 3 — best for dialogue & voiceover</option>
+          <option value="seedance2">Seedance 2 — best for action</option>
+          <option value="kling3">Kling 3.0 — best for transitions</option>
+          <option value="sora2">Sora 2 — best for montages</option>
+          <option value="higgsfield">Higgsfield — general purpose</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Resolution</label>
+        <select id="gen-res">
+          <option value="1080p">1080p (recommended)</option>
+          <option value="720p">720p — faster</option>
+          <option value="4k">4K — slower, highest quality</option>
+          <option value="480p">480p — fastest</option>
+        </select>
+      </div>
+
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="gen-vo" checked class="accent-orange-500" />
+          <span class="text-sm">Generate voiceover (ElevenLabs)</span>
+        </label>
+      </div>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="gen-cap" checked class="accent-orange-500" />
+          <span class="text-sm">Burn-in captions</span>
+        </label>
+      </div>
+
+      <button class="btn-primary w-full text-base" onclick="startGeneration()">🎬 Start Generation</button>
+    </div>
+
+    <!-- Active jobs -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm" style="color:#e8af6c;">Active Jobs</h3>
+        <button class="btn-secondary text-xs px-3 py-1" onclick="loadGallery()">Refresh</button>
+      </div>
+      <div id="active-jobs" class="space-y-3 text-sm"></div>
+    </div>
+  </section>
+
+  <!-- ── Gallery ──────────────────────────────────────────────────────────── -->
+  <section id="tab-gallery" class="section space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold" style="color:#f0c866;">Gallery</h2>
+      <button class="btn-secondary text-sm" onclick="loadGallery()">↺ Refresh</button>
+    </div>
+    <div id="gallery-list" class="space-y-4"></div>
+  </section>
+
+  <!-- ── Settings ─────────────────────────────────────────────────────────── -->
+  <section id="tab-settings" class="section space-y-4">
+    <h2 class="text-xl font-bold" style="color:#f0c866;">Settings</h2>
+
+    <!-- API Status -->
+    <div class="card p-4 space-y-2">
+      <h3 class="font-semibold text-sm mb-2" style="color:#e8af6c;">API Status</h3>
+      <div id="api-status-detail" class="text-xs space-y-2" style="color:#963f16;">Loading…</div>
+    </div>
+
+    <!-- Notion Connect -->
+    <div class="card p-4 space-y-3">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">Connect Notion</h3>
+      <div><label>Notion API Key</label><input class="input" id="notion-key" placeholder="secret_xxx…" type="password" /></div>
+      <div><label>Database ID (optional)</label><input class="input" id="notion-db" placeholder="32-char hex ID" /></div>
+      <button class="btn-primary w-full" onclick="connectNotion()">Connect</button>
+      <div id="notion-status" class="text-xs" style="color:#e8af6c;"></div>
+    </div>
+
+    <!-- Notion Setup -->
+    <div class="card p-4 space-y-3">
+      <h3 class="font-semibold text-sm" style="color:#e8af6c;">Create Notion Databases</h3>
+      <p class="text-xs" style="color:#963f16;">Creates Characters + Scenes databases inside a Notion page you own.</p>
+      <div><label>Parent Page ID</label><input class="input" id="notion-parent" placeholder="32-char page ID from Notion URL" /></div>
+      <button class="btn-secondary w-full" onclick="setupNotion()">Create Databases</button>
+      <div id="notion-setup-status" class="text-xs" style="color:#e8af6c;"></div>
+    </div>
+
+    <!-- Info -->
+    <div class="card p-4 text-xs space-y-1" style="color:#963f16;">
+      <div class="font-semibold mb-1" style="color:#e8af6c;">Accessing from your phone</div>
+      <div>Make sure you're on the same Wi-Fi network as the server.</div>
+      <div>Find your computer's local IP:</div>
+      <div class="font-mono p-2 rounded" style="background:#0f0a05; color:#e8af6c;">ifconfig | grep "inet " | grep -v 127<br>→ visit http://&lt;ip&gt;:8000</div>
+      <div class="mt-2"><a href="/docs" target="_blank" class="underline" style="color:#d07020;">Open API Docs →</a></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
 </body>
 </html>
