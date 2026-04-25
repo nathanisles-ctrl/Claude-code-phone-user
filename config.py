@@ -14,9 +14,14 @@ class Config:
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./studio.sqlite3")
-    DATABASE_PATH: str = DATABASE_URL.replace("sqlite:///", "")
+    # Database — use absolute path so it works regardless of working directory
+    _BASE_DIR: Path = Path(__file__).parent
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    DATABASE_PATH: str = (
+        DATABASE_URL.replace("sqlite:///", "")
+        if DATABASE_URL
+        else str(_BASE_DIR / "studio.sqlite3")
+    )
 
     # Notion
     NOTION_API_KEY: str = os.getenv("NOTION_API_KEY", "")

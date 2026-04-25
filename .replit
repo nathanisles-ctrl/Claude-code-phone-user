@@ -1,0 +1,9 @@
+run = "python main.py"
+modules = ["python-3.11:v18-20231220-afcf1d0"]
+
+[nix]
+channel = "stable-23_11"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
