@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from models.schemas import CharacterCreate, CharacterUpdate, CharacterResponse
 from config import settings
 import database as db
 import notion_manager as notion
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/characters", tags=["Characters"])
 
@@ -18,23 +21,23 @@ async def list_characters(
             notion_chars = await notion.fetch_all_characters(
                 settings.NOTION_API_KEY, settings.NOTION_DATABASE_ID
             )
-            # Upsert into local DB
+            # Build a set of known notion_ids in one DB call (avoids O(n²) loop)
+            existing_notion_ids = {
+                c["notion_id"] for c in db.list_characters() if c.get("notion_id")
+            }
             for nc in notion_chars:
-                existing = [
-                    c for c in db.list_characters()
-                    if c.get("notion_id") == nc["notion_id"]
-                ]
-                if not existing and project_id:
+                if nc.get("notion_id") and nc["notion_id"] not in existing_notion_ids and project_id:
                     db.create_character(
                         project_id=project_id,
                         name=nc["name"],
-                        description=nc["description"],
+                        description=nc.get("description", ""),
                         notion_id=nc["notion_id"],
-                        voice_id=nc["voice_id"],
-                        reference_image_url=nc["reference_image_url"],
+                        voice_id=nc.get("voice_id", ""),
+                        reference_image_url=nc.get("reference_image_url", ""),
                     )
+                    existing_notion_ids.add(nc["notion_id"])
         except Exception as exc:
-            pass  # Fall through to local DB on Notion errors
+            logger.warning("Notion character sync failed (using local DB): %s", exc)
 
     return db.list_characters(project_id)
 
@@ -57,7 +60,7 @@ async def create_character(body: CharacterCreate):
                 project=project_name,
             )
         except Exception as exc:
-            pass  # Save locally even if Notion fails
+            logger.warning("Notion character push failed (saving locally): %s", exc)
 
     return db.create_character(
         project_id=body.project_id,

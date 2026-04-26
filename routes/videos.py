@@ -1,7 +1,8 @@
 import asyncio
 import logging
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from models.schemas import (
     VideoGenerationRequest,
@@ -138,8 +139,8 @@ async def _run_generation_pipeline(video_id: int, scene: dict,
                     status="generated",
                     video_path=final.get("final_path", ""),
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Notion status sync failed for video %d: %s", video_id, exc)
 
     except Exception as exc:
         error_msg = str(exc)
@@ -187,8 +188,11 @@ async def generate_video(body: VideoGenerationRequest, background_tasks: Backgro
 
 
 @router.get("", response_model=list[VideoResponse])
-async def list_videos():
-    return db.list_videos_all()
+async def list_videos(
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max results to return"),
+    offset: int = Query(0, ge=0, description="Results to skip"),
+):
+    return db.list_videos_all(limit=limit, offset=offset)
 
 
 @router.get("/{video_id}", response_model=VideoResponse)
@@ -224,12 +228,22 @@ async def download_video(video_id: int):
     if video["status"] != "completed":
         raise HTTPException(status_code=409, detail=f"Video not ready (status: {video['status']})")
 
-    path = video.get("final_path") or video.get("file_path")
-    if not path or not Path(path).exists():
+    raw_path = video.get("final_path") or video.get("file_path")
+    if not raw_path:
+        raise HTTPException(status_code=404, detail="Video file path not recorded")
+
+    # Prevent path traversal: resolve and confirm it lives inside OUTPUT_DIR
+    video_path = Path(raw_path).resolve()
+    output_dir = settings.OUTPUT_DIR.resolve()
+    if not str(video_path).startswith(str(output_dir)):
+        logger.error("Path traversal attempt for video %d: %s", video_id, raw_path)
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not video_path.exists():
         raise HTTPException(status_code=404, detail="Video file not found on disk")
 
     return FileResponse(
-        path=path,
+        path=str(video_path),
         media_type="video/mp4",
-        filename=Path(path).name,
+        filename=video_path.name,
     )

@@ -17,7 +17,7 @@ const api = async (path, opts = {}) => {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(e => { console.warn('[API] JSON parse failed:', e); return {}; });
   if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
   return data;
 };
@@ -237,9 +237,12 @@ const createCharacter = async () => {
 
 const deleteCharacter = async (id) => {
   if (!confirm('Delete this character?')) return;
-  await fetch(`/api/characters/${id}`, { method: 'DELETE' });
-  toast('Character deleted');
-  await loadCharacters();
+  try {
+    const res = await fetch(`/api/characters/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    toast('Character deleted');
+    await loadCharacters();
+  } catch(e) { toast('Error deleting character: ' + e.message); }
 };
 
 const syncCharacterDropdowns = () => {
@@ -346,21 +349,28 @@ const updateSceneStatus = async (id, status) => {
   await loadScenes();
 };
 
-const generateFromScene = (sceneId) => {
+const generateFromScene = async (sceneId) => {
   showTab('generate');
-  setTimeout(() => {
-    const sel = el('gen-scene');
-    if (sel) sel.value = sceneId;
-    previewScene(sceneId);
-  }, 100);
+  await loadSceneDropdowns();
+  const sel = el('gen-scene');
+  if (sel) { sel.value = sceneId; previewScene(sceneId); }
 };
 
 // ── Generate ──────────────────────────────────────────────────────────────────
+let _genSceneController = null;
+
 const loadSceneDropdowns = async () => {
   if (!state.scenes.length) state.scenes = await api('/api/scenes').catch(() => []);
   populateSelect('gen-scene', state.scenes, 'id', sc => sc.title || `Scene #${sc.id} — ${sc.scene_type}`);
-  el('gen-scene').addEventListener('change', () => previewScene(el('gen-scene').value));
   populateSelect('qs-scene', state.scenes, 'id', sc => sc.title || `Scene #${sc.id} — ${sc.scene_type}`);
+  // Remove previous change listener before adding new one to prevent accumulation
+  if (_genSceneController) _genSceneController.abort();
+  _genSceneController = new AbortController();
+  el('gen-scene').addEventListener(
+    'change',
+    () => previewScene(el('gen-scene').value),
+    { signal: _genSceneController.signal },
+  );
 };
 
 const previewScene = (sceneId) => {
@@ -421,23 +431,39 @@ const quickGenerate = async () => {
 };
 
 // ── Polling ────────────────────────────────────────────────────────────────────
+const POLL_INTERVAL_MS = 8000;
+const POLL_MAX_ATTEMPTS = 75; // 75 × 8s ≈ 10 minutes
+const _pollAttempts = {};
+
+const _stopPolling = (videoId) => {
+  clearInterval(state.pollingJobs[videoId]);
+  delete state.pollingJobs[videoId];
+  delete _pollAttempts[videoId];
+};
+
 const startPolling = (videoId) => {
   if (state.pollingJobs[videoId]) return;
+  _pollAttempts[videoId] = 0;
   state.pollingJobs[videoId] = setInterval(async () => {
+    _pollAttempts[videoId] = (_pollAttempts[videoId] || 0) + 1;
+    if (_pollAttempts[videoId] > POLL_MAX_ATTEMPTS) {
+      _stopPolling(videoId);
+      toast(`Video #${videoId}: timed out waiting. Check Gallery manually.`, 6000);
+      return;
+    }
     try {
       const s = await api(`/api/videos/${videoId}/status`);
       renderActiveJobs();
       if (s.status === 'completed' || s.status === 'failed') {
-        clearInterval(state.pollingJobs[videoId]);
-        delete state.pollingJobs[videoId];
+        _stopPolling(videoId);
         if (s.status === 'completed') toast(`Video #${videoId} complete! Check Gallery.`);
-        else toast(`Video #${videoId} failed: ${s.error_message}`);
+        else toast(`Video #${videoId} failed: ${s.error_message}`, 6000);
         state.videos = await api('/api/videos').catch(() => state.videos);
         renderRecentVideos(state.videos.slice(0, 5));
         renderGallery();
       }
-    } catch { /* silently continue polling */ }
-  }, 8000);
+    } catch { /* network error — continue polling */ }
+  }, POLL_INTERVAL_MS);
 };
 
 const renderActiveJobs = async () => {
@@ -579,7 +605,7 @@ const registerServiceWorker = async () => {
     reg.addEventListener('updatefound', () => {
       const worker = reg.installing;
       worker?.addEventListener('statechange', () => {
-        if (worker.statechange === 'installed' && navigator.serviceWorker.controller) {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
           toast('App updated — reload to get the latest version.', 5000);
         }
       });

@@ -173,8 +173,7 @@ async function staleWhileRevalidate(request) {
 
   // Return cached immediately; update cache in background
   if (cached) {
-    // Kick off the background update but don't await it
-    networkFetch;
+    networkFetch.catch(() => {}); // fire-and-forget background update
     return cached;
   }
 
@@ -215,12 +214,18 @@ async function syncGenerationStatus() {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {};
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Creative Video Studio', {
-      body: data.body || 'Your video is ready!',
-      icon: '/static/icons/icon-192.png',
-      badge: '/static/icons/icon-192.png',
-      data: data.url ? { url: data.url } : {},
-    })
+    (async () => {
+      try {
+        await self.registration.showNotification(data.title || 'Creative Video Studio', {
+          body: data.body || 'Your video is ready!',
+          icon: '/static/icons/icon-192.png',
+          badge: '/static/icons/icon-192.png',
+          data: data.url ? { url: data.url } : {},
+        });
+      } catch (err) {
+        console.warn('[SW] showNotification failed:', err);
+      }
+    })()
   );
 });
 

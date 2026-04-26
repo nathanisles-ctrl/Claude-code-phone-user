@@ -8,4 +8,3 @@ python-multipart==0.0.9
 aiofiles==23.2.1
 notion-client==2.2.1
 Pillow==10.3.0
-ffmpeg-python==0.2.0

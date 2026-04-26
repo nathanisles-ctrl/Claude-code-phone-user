@@ -50,106 +50,104 @@ def assemble_video(
     tmp_dir = output_path.parent / "_tmp"
     tmp_dir.mkdir(exist_ok=True)
 
-    current = video_path
-
-    # Step 1: Attach audio
-    if audio_path and audio_path.exists() and audio_path.stat().st_size > 0:
-        audio_out = tmp_dir / "with_audio.mp4"
-        _run_ffmpeg(
-            [
-                "-i", str(current),
-                "-i", str(audio_path),
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-shortest",
-                str(audio_out),
-            ],
-            description="attach audio",
-        )
-        current = audio_out
-
-    # Step 2: Mix background music (if provided)
-    if background_music and background_music.exists():
-        music_out = tmp_dir / "with_music.mp4"
-        _run_ffmpeg(
-            [
-                "-i", str(current),
-                "-i", str(background_music),
-                "-filter_complex",
-                f"[0:a][1:a]amix=inputs=2:weights=1 {music_volume}[aout]",
-                "-map", "0:v",
-                "-map", "[aout]",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-shortest",
-                str(music_out),
-            ],
-            description="mix background music",
-        )
-        current = music_out
-
-    # Step 3: Burn-in captions
-    if captions_srt and captions_srt.exists() and captions_srt.stat().st_size > 0:
-        caption_out = tmp_dir / "with_captions.mp4"
-        # Escape path for ffmpeg filter
-        srt_escaped = str(captions_srt).replace("\\", "/").replace(":", "\\:")
-        subtitle_style = (
-            "FontName=Inter,"
-            "FontSize=18,"
-            "PrimaryColour=&H00FFFFFF,"      # white text
-            "BackColour=&H8C000000,"         # semi-transparent black background
-            "BorderStyle=3,"                  # opaque box
-            "Alignment=2,"                    # bottom center
-            "MarginV=40"
-        )
-        _run_ffmpeg(
-            [
-                "-i", str(current),
-                "-vf", f"subtitles='{srt_escaped}':force_style='{subtitle_style}'",
-                "-c:a", "copy",
-                str(caption_out),
-            ],
-            description="burn captions",
-        )
-        current = caption_out
-
-    # Step 4: Fade in/out + final encode to H.264/AAC
-    # Get video duration for fade-out timing
-    duration_result = subprocess.run(
-        [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            str(current),
-        ],
-        capture_output=True, text=True,
-    )
     try:
-        duration = float(duration_result.stdout.strip())
-    except (ValueError, AttributeError):
-        duration = 10.0  # fallback
+        current = video_path
 
-    fade_start = max(0.0, duration - fade_duration)
+        # Step 1: Attach audio
+        if audio_path and audio_path.exists() and audio_path.stat().st_size > 0:
+            audio_out = tmp_dir / "with_audio.mp4"
+            _run_ffmpeg(
+                [
+                    "-i", str(current),
+                    "-i", str(audio_path),
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-shortest",
+                    str(audio_out),
+                ],
+                description="attach audio",
+            )
+            current = audio_out
 
-    _run_ffmpeg(
-        [
-            "-i", str(current),
-            "-vf", f"fade=t=in:st=0:d={fade_duration},fade=t=out:st={fade_start}:d={fade_duration}",
-            "-af", f"afade=t=in:st=0:d={fade_duration},afade=t=out:st={fade_start}:d={fade_duration}",
-            "-c:v", "libx264",
-            "-crf", "20",
-            "-preset", "fast",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-movflags", "+faststart",
-            str(output_path),
-        ],
-        description="final encode",
-    )
+        # Step 2: Mix background music (if provided)
+        if background_music and background_music.exists():
+            music_out = tmp_dir / "with_music.mp4"
+            _run_ffmpeg(
+                [
+                    "-i", str(current),
+                    "-i", str(background_music),
+                    "-filter_complex",
+                    f"[1:a]volume={music_volume}[music];[0:a][music]amix=inputs=2:normalize=0[aout]",
+                    "-map", "0:v",
+                    "-map", "[aout]",
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-shortest",
+                    str(music_out),
+                ],
+                description="mix background music",
+            )
+            current = music_out
 
-    # Cleanup tmp
-    import shutil as _shutil
-    _shutil.rmtree(tmp_dir, ignore_errors=True)
+        # Step 3: Burn-in captions
+        if captions_srt and captions_srt.exists() and captions_srt.stat().st_size > 0:
+            caption_out = tmp_dir / "with_captions.mp4"
+            # Escape colon characters for ffmpeg filter syntax (Windows paths and colons)
+            srt_escaped = str(captions_srt.resolve()).replace("\\", "/").replace(":", "\\:")
+            subtitle_style = (
+                "FontName=Inter,"
+                "FontSize=18,"
+                "PrimaryColour=&H00FFFFFF,"      # white text
+                "BackColour=&H8C000000,"         # semi-transparent black background
+                "BorderStyle=3,"                  # opaque box
+                "Alignment=2,"                    # bottom center
+                "MarginV=40"
+            )
+            _run_ffmpeg(
+                [
+                    "-i", str(current),
+                    "-vf", f"subtitles='{srt_escaped}':force_style='{subtitle_style}'",
+                    "-c:a", "copy",
+                    str(caption_out),
+                ],
+                description="burn captions",
+            )
+            current = caption_out
+
+        # Step 4: Fade in/out + final encode to H.264/AAC
+        duration_result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(current),
+            ],
+            capture_output=True, text=True,
+        )
+        try:
+            duration = float(duration_result.stdout.strip())
+        except (ValueError, AttributeError):
+            duration = 10.0  # fallback if ffprobe fails
+
+        fade_start = max(0.0, duration - fade_duration)
+
+        _run_ffmpeg(
+            [
+                "-i", str(current),
+                "-vf", f"fade=t=in:st=0:d={fade_duration},fade=t=out:st={fade_start}:d={fade_duration}",
+                "-af", f"afade=t=in:st=0:d={fade_duration},afade=t=out:st={fade_start}:d={fade_duration}",
+                "-c:v", "libx264",
+                "-crf", "20",
+                "-preset", "fast",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                str(output_path),
+            ],
+            description="final encode",
+        )
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     logger.info(
         "Assembly complete: %s (%.1f MB)",

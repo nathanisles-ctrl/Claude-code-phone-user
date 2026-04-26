@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from models.schemas import SceneCreate, SceneUpdate, SceneResponse
 from config import settings
 import database as db
 import notion_manager as notion
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scenes", tags=["Scenes"])
 
@@ -38,8 +41,8 @@ async def create_scene(body: SceneCreate):
                 resolution=body.resolution.value,
                 character_name=character_name,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Notion scene sync failed (scene saved locally): %s", exc)
 
     return db.create_scene(
         project_id=body.project_id,
@@ -86,7 +89,7 @@ async def update_scene(scene_id: int, body: SceneUpdate):
                 page_id=scene["notion_id"],
                 status=updates["status"],
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Notion status update failed for scene %d: %s", scene_id, exc)
 
     return updated

@@ -49,11 +49,12 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Allow all origins so the studio is accessible from a phone on the same network
+# Allow all origins so the studio is accessible from a phone on the same network.
+# allow_credentials must be False when allow_origins=["*"] (browser spec requirement).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -102,7 +103,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s: %s", request.url.path, exc, exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)},
+        content={"detail": "Internal server error"},
     )
 
 

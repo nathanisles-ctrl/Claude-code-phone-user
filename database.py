@@ -107,6 +107,28 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     return dict(row)
 
 
+# Whitelist of valid column names per table — prevents SQL injection via kwargs
+_ALLOWED_COLUMNS: dict[str, set[str]] = {
+    "projects": {"name", "description", "notion_workspace_id", "updated_at"},
+    "characters": {"name", "description", "notion_id", "voice_id", "reference_image_url", "updated_at"},
+    "scenes": {
+        "title", "scene_type", "script", "character_id", "model", "duration",
+        "resolution", "status", "notion_id", "previous_scene_id", "updated_at",
+    },
+    "videos": {
+        "file_path", "audio_path", "captions_path", "final_path", "generation_job_id",
+        "model_used", "duration", "resolution", "status", "error_message", "updated_at",
+    },
+}
+
+
+def _validate_columns(table: str, kwargs: dict) -> None:
+    allowed = _ALLOWED_COLUMNS.get(table, set())
+    invalid = set(kwargs.keys()) - allowed
+    if invalid:
+        raise ValueError(f"Invalid column(s) for table '{table}': {invalid}")
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 def create_project(name: str, description: str = "", notion_workspace_id: str = "") -> dict:
@@ -143,6 +165,7 @@ def list_projects() -> list[dict]:
 
 def update_project(project_id: int, **kwargs) -> Optional[dict]:
     kwargs["updated_at"] = _now()
+    _validate_columns("projects", kwargs)
     fields = ", ".join(f"{k}=?" for k in kwargs)
     values = list(kwargs.values()) + [project_id]
     conn = get_connection()
@@ -205,6 +228,7 @@ def list_characters(project_id: Optional[int] = None) -> list[dict]:
 
 def update_character(character_id: int, **kwargs) -> Optional[dict]:
     kwargs["updated_at"] = _now()
+    _validate_columns("characters", kwargs)
     fields = ", ".join(f"{k}=?" for k in kwargs)
     values = list(kwargs.values()) + [character_id]
     conn = get_connection()
@@ -268,6 +292,7 @@ def list_scenes(project_id: Optional[int] = None) -> list[dict]:
 
 def update_scene(scene_id: int, **kwargs) -> Optional[dict]:
     kwargs["updated_at"] = _now()
+    _validate_columns("scenes", kwargs)
     fields = ", ".join(f"{k}=?" for k in kwargs)
     values = list(kwargs.values()) + [scene_id]
     conn = get_connection()
@@ -318,6 +343,7 @@ def list_videos(scene_id: Optional[int] = None) -> list[dict]:
 
 def update_video(video_id: int, **kwargs) -> Optional[dict]:
     kwargs["updated_at"] = _now()
+    _validate_columns("videos", kwargs)
     fields = ", ".join(f"{k}=?" for k in kwargs)
     values = list(kwargs.values()) + [video_id]
     conn = get_connection()
@@ -329,8 +355,19 @@ def update_video(video_id: int, **kwargs) -> Optional[dict]:
         conn.close()
 
 
-def list_videos_all() -> list[dict]:
-    return list_videos()
+def list_videos_all(limit: Optional[int] = None, offset: int = 0) -> list[dict]:
+    conn = get_connection()
+    try:
+        if limit is not None:
+            rows = conn.execute(
+                "SELECT * FROM videos ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM videos ORDER BY created_at DESC").fetchall()
+        return [_row_to_dict(r) for r in rows]
+    finally:
+        conn.close()
 
 
 # ── Generation Logs ───────────────────────────────────────────────────────────

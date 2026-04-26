@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Optional
 import httpx
@@ -143,18 +145,53 @@ async def generate_voiceover(
 
     for seg in dialogues:
         voice_id = voice_map.get(seg["character"], fallback_voice)
+        if voice_id == fallback_voice and seg["character"] != "Narrator":
+            logger.debug("  [%s] has no mapped voice, using default", seg["character"])
         logger.debug("  [%s] → voice %s: '%.60s'", seg["character"], voice_id, seg["text"])
         audio = await generate_speech(seg["text"], voice_id)
         segments.append(audio)
 
-    # Concatenate raw MP3 bytes (valid for simple sequential playback)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "wb") as f:
-        for seg_bytes in segments:
-            f.write(seg_bytes)
+
+    if len(segments) == 1:
+        output_path.write_bytes(segments[0])
+    else:
+        await _concat_mp3_segments(segments, output_path)
 
     logger.info("Voiceover saved: %s (%.1f KB)", output_path, output_path.stat().st_size / 1000)
     return output_path
+
+
+async def _concat_mp3_segments(segments: list[bytes], output_path: Path) -> None:
+    """Concatenate MP3 segments properly using ffmpeg concat demuxer."""
+    if not shutil.which("ffmpeg"):
+        # ffmpeg unavailable — fall back to raw concatenation with a warning
+        logger.warning("ffmpeg not found; MP3 segments concatenated as raw bytes (may cause glitches)")
+        with open(output_path, "wb") as f:
+            for seg_bytes in segments:
+                f.write(seg_bytes)
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        seg_files: list[Path] = []
+        for i, audio in enumerate(segments):
+            seg_file = tmp_path / f"seg_{i:04d}.mp3"
+            seg_file.write_bytes(audio)
+            seg_files.append(seg_file)
+
+        list_file = tmp_path / "concat.txt"
+        list_file.write_text("\n".join(f"file '{f}'" for f in seg_files))
+
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+            "-i", str(list_file), "-c", "copy", str(output_path),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"ffmpeg MP3 concat failed: {stderr.decode()[:500]}")
 
 
 async def get_voice_info(voice_id: str) -> dict:
