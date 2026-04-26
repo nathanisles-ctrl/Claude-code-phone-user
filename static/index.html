@@ -80,8 +80,8 @@
 </head>
 <body class="min-h-screen">
 
-<!-- Toast -->
-<div id="toast" class="toast"></div>
+<!-- Toast (aria-live so screen readers announce updates) -->
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Header -->
 <header class="sticky top-0 z-50" style="background:#1a1108; border-bottom:1px solid #3c2a18;">
@@ -90,10 +90,10 @@
       <h1 class="font-bold text-lg" style="color:#e8af6c;">🎬 Creative Video Studio</h1>
       <p id="statusLine" class="text-xs" style="color:#963f16;">Loading…</p>
     </div>
-    <div class="flex gap-2">
-      <div id="dot-higgsfield" class="status-dot dot-warn" title="Higgsfield"></div>
-      <div id="dot-elevenlabs" class="status-dot dot-warn" title="ElevenLabs"></div>
-      <div id="dot-notion"     class="status-dot dot-warn" title="Notion"></div>
+    <div class="flex gap-2" role="group" aria-label="API status indicators">
+      <div id="dot-higgsfield" class="status-dot dot-warn" title="Higgsfield" aria-label="Higgsfield: checking"></div>
+      <div id="dot-elevenlabs" class="status-dot dot-warn" title="ElevenLabs" aria-label="ElevenLabs: checking"></div>
+      <div id="dot-notion"     class="status-dot dot-warn" title="Notion"     aria-label="Notion: checking"></div>
     </div>
   </div>
 </header>
@@ -171,7 +171,7 @@
           <input type="checkbox" id="qs-cap" checked class="accent-orange-500" /> Captions
         </label>
       </div>
-      <button class="btn-primary w-full" onclick="quickGenerate()">🚀 Generate Video</button>
+      <button class="btn-primary w-full" onclick="quickGenerate(this)">🚀 Generate Video</button>
       <div id="qs-status" class="hidden text-sm" style="color:#e8af6c;"></div>
     </div>
 
@@ -191,8 +191,8 @@
 
     <div id="proj-form" class="card p-4 space-y-3 hidden">
       <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Project</h3>
-      <div><label>Name</label><input class="input" id="proj-name" placeholder="My Short Film" /></div>
-      <div><label>Description</label><textarea id="proj-desc" placeholder="A brief description…"></textarea></div>
+      <div><label for="proj-name">Name</label><input class="input" id="proj-name" placeholder="My Short Film" required minlength="1" maxlength="200" autocomplete="off" /></div>
+      <div><label for="proj-desc">Description</label><textarea id="proj-desc" placeholder="A brief description…" maxlength="2000"></textarea></div>
       <button class="btn-primary w-full" onclick="createProject()">Create Project</button>
     </div>
 
@@ -208,11 +208,11 @@
 
     <div id="char-form" class="card p-4 space-y-3 hidden">
       <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Character</h3>
-      <div><label>Project</label><select id="char-project"></select></div>
-      <div><label>Name</label><input class="input" id="char-name" placeholder="Character name" /></div>
-      <div><label>Description</label><textarea id="char-desc" placeholder="Appearance, personality…"></textarea></div>
-      <div><label>ElevenLabs Voice ID</label><input class="input" id="char-voice" placeholder="21m00Tcm4TlvDq8ikWAM" /></div>
-      <div><label>Reference Image URL</label><input class="input" id="char-img" placeholder="https://…" /></div>
+      <div><label for="char-project">Project</label><select id="char-project" required aria-required="true"></select></div>
+      <div><label for="char-name">Name</label><input class="input" id="char-name" placeholder="Character name" required minlength="1" maxlength="200" autocomplete="off" /></div>
+      <div><label for="char-desc">Description</label><textarea id="char-desc" placeholder="Appearance, personality…" maxlength="2000"></textarea></div>
+      <div><label for="char-voice">ElevenLabs Voice ID</label><input class="input" id="char-voice" placeholder="21m00Tcm4TlvDq8ikWAM" autocomplete="off" /></div>
+      <div><label for="char-img">Reference Image URL</label><input class="input" id="char-img" type="url" placeholder="https://…" /></div>
       <button class="btn-primary w-full" onclick="createCharacter()">Save Character</button>
     </div>
 
@@ -238,10 +238,10 @@
     <div id="scene-form" class="card p-4 space-y-3 hidden">
       <h3 class="font-semibold text-sm" style="color:#e8af6c;">New Scene</h3>
       <div class="grid grid-cols-2 gap-3">
-        <div><label>Project</label><select id="scene-project"></select></div>
-        <div><label>Character</label><select id="scene-character"><option value="">None</option></select></div>
+        <div><label for="scene-project">Project</label><select id="scene-project" required aria-required="true"></select></div>
+        <div><label for="scene-character">Character</label><select id="scene-character"><option value="">None</option></select></div>
       </div>
-      <div><label>Title</label><input class="input" id="scene-title" placeholder="Opening sequence…" /></div>
+      <div><label for="scene-title">Title</label><input class="input" id="scene-title" placeholder="Opening sequence…" maxlength="200" autocomplete="off" /></div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label>Scene Type</label>
@@ -260,11 +260,11 @@
         </div>
       </div>
       <div>
-        <label>Script / Prompt</label>
-        <textarea id="scene-script" placeholder='[Character]: "Hello world"\n\nOr just describe the scene…' style="min-height:120px;"></textarea>
+        <label for="scene-script">Script / Prompt</label>
+        <textarea id="scene-script" placeholder='[Character]: "Hello world"&#10;&#10;Or just describe the scene…' style="min-height:120px;" required aria-required="true" maxlength="10000"></textarea>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label>Duration (s)</label><input class="input" id="scene-duration" type="number" value="5" min="1" max="60" /></div>
+        <div><label for="scene-duration">Duration (s)</label><input class="input" id="scene-duration" type="number" value="5" min="1" max="60" required /></div>
         <div>
           <label>Resolution</label>
           <select id="scene-res">
@@ -365,8 +365,8 @@
     <!-- Notion Connect -->
     <div class="card p-4 space-y-3">
       <h3 class="font-semibold text-sm" style="color:#e8af6c;">Connect Notion</h3>
-      <div><label>Notion API Key</label><input class="input" id="notion-key" placeholder="secret_xxx…" type="password" /></div>
-      <div><label>Database ID (optional)</label><input class="input" id="notion-db" placeholder="32-char hex ID" /></div>
+      <div><label for="notion-key">Notion API Key</label><input class="input" id="notion-key" placeholder="secret_xxx…" type="password" autocomplete="off" /></div>
+      <div><label for="notion-db">Database ID (optional)</label><input class="input" id="notion-db" placeholder="32-char hex ID" autocomplete="off" /></div>
       <button class="btn-primary w-full" onclick="connectNotion()">Connect</button>
       <div id="notion-status" class="text-xs" style="color:#e8af6c;"></div>
     </div>
@@ -375,7 +375,7 @@
     <div class="card p-4 space-y-3">
       <h3 class="font-semibold text-sm" style="color:#e8af6c;">Create Notion Databases</h3>
       <p class="text-xs" style="color:#963f16;">Creates Characters + Scenes databases inside a Notion page you own.</p>
-      <div><label>Parent Page ID</label><input class="input" id="notion-parent" placeholder="32-char page ID from Notion URL" /></div>
+      <div><label for="notion-parent">Parent Page ID</label><input class="input" id="notion-parent" placeholder="32-char page ID from Notion URL" autocomplete="off" /></div>
       <button class="btn-secondary w-full" onclick="setupNotion()">Create Databases</button>
       <div id="notion-setup-status" class="text-xs" style="color:#e8af6c;"></div>
     </div>
@@ -387,12 +387,17 @@
     </div>
 
     <!-- Info -->
-    <div class="card p-4 text-xs space-y-1" style="color:#963f16;">
+    <div class="card p-4 text-xs space-y-2" style="color:#963f16;">
       <div class="font-semibold mb-1" style="color:#e8af6c;">Accessing from your phone</div>
-      <div>Make sure you're on the same Wi-Fi network as the server.</div>
-      <div>Find your computer's local IP:</div>
-      <div class="font-mono p-2 rounded" style="background:#0f0a05; color:#e8af6c;">ifconfig | grep "inet " | grep -v 127<br>→ visit http://&lt;ip&gt;:8000</div>
-      <div class="mt-2"><a href="/docs" target="_blank" class="underline" style="color:#d07020;">Open API Docs →</a></div>
+      <div>Make sure your phone is on the same Wi-Fi network as this server.</div>
+      <div>Find your server's local IP address:</div>
+      <div class="font-mono p-2 rounded space-y-1" style="background:#0f0a05; color:#e8af6c; line-height:1.8;">
+        <div><span style="color:#963f16;">macOS:</span> ipconfig getifaddr en0</div>
+        <div><span style="color:#963f16;">Linux:</span> ip -4 addr show | grep -oP '(?&lt;=inet )\d+\.\d+\.\d+\.\d+' | grep -v 127</div>
+        <div><span style="color:#963f16;">Windows:</span> ipconfig | findstr IPv4</div>
+        <div style="color:#c0a080; margin-top:4px;">→ visit http://&lt;ip&gt;:8000</div>
+      </div>
+      <div class="mt-2"><a href="/docs" target="_blank" class="underline" style="color:#d07020;" rel="noopener">Open API Docs →</a></div>
     </div>
   </section>
 

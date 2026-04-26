@@ -8,6 +8,7 @@ const state = {
   scenes: [],
   videos: [],
   pollingJobs: {},           // video_id → interval id
+  videoStatuses: {},         // video_id → latest status response (cache for renderActiveJobs)
   activeProjectId: null,
 };
 
@@ -401,10 +402,9 @@ const startGeneration = async () => {
   } catch(e) { toast('Error: ' + e.message); }
 };
 
-const quickGenerate = async () => {
+const quickGenerate = async (btn) => {
   const scene_id = parseInt(el('qs-scene').value);
   if (!scene_id) { toast('No scene selected'); return; }
-  const btn = event.target;
   btn.disabled = true; btn.textContent = '⏳ Starting…';
   el('qs-status').classList.remove('hidden');
   el('qs-status').textContent = 'Submitting generation job…';
@@ -453,6 +453,7 @@ const startPolling = (videoId) => {
     }
     try {
       const s = await api(`/api/videos/${videoId}/status`);
+      state.videoStatuses[videoId] = s;  // cache for renderActiveJobs
       renderActiveJobs();
       if (s.status === 'completed' || s.status === 'failed') {
         _stopPolling(videoId);
@@ -466,29 +467,27 @@ const startPolling = (videoId) => {
   }, POLL_INTERVAL_MS);
 };
 
-const renderActiveJobs = async () => {
+const renderActiveJobs = () => {
   const container = el('active-jobs');
-  if (!Object.keys(state.pollingJobs).length) {
+  const ids = Object.keys(state.pollingJobs);
+  if (!ids.length) {
     container.innerHTML = '<div style="color:#963f16; font-size:0.8rem;">No active jobs.</div>';
     return;
   }
-  for (const vid of Object.keys(state.pollingJobs)) {
-    try {
-      const s = await api(`/api/videos/${vid}/status`);
-      const existing = document.getElementById(`job-${vid}`);
-      const html = `
-        <div id="job-${vid}" class="card p-3">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-semibold" style="color:#e8af6c;">Video #${vid}</span>
-            ${badge(s.status)}
-          </div>
-          <div class="text-xs mb-2" style="color:#963f16;">${esc(s.progress_message || 'Working…')}</div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${progressPct(s.status)}%"></div></div>
-        </div>`;
-      if (existing) existing.outerHTML = html;
-      else container.insertAdjacentHTML('beforeend', html);
-    } catch { /* ignore */ }
-  }
+  // Read from cached statuses — no API calls here
+  container.innerHTML = ids.map(vid => {
+    const s = state.videoStatuses[vid];
+    if (!s) return `<div class="card p-3 text-xs" style="color:#963f16;">Video #${vid} — starting…</div>`;
+    return `
+      <div id="job-${vid}" class="card p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-semibold" style="color:#e8af6c;">Video #${vid}</span>
+          ${badge(s.status)}
+        </div>
+        <div class="text-xs mb-2" style="color:#963f16;">${esc(s.progress_message || 'Working…')}</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${progressPct(s.status)}%"></div></div>
+      </div>`;
+  }).join('');
 };
 
 const progressPct = (status) => {
