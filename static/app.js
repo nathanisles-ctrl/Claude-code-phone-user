@@ -175,10 +175,11 @@ const createProject = async () => {
 const deleteProject = async (id) => {
   if (!confirm('Delete this project and all its data?')) return;
   try {
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
     toast('Project deleted');
     await loadProjects();
-  } catch(e) { toast('Error: ' + e.message); }
+  } catch(e) { toast('Error deleting project: ' + e.message); }
 };
 
 const syncProjectDropdowns = () => {
@@ -345,9 +346,11 @@ const createScene = async () => {
 };
 
 const updateSceneStatus = async (id, status) => {
-  await api(`/api/scenes/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
-  toast(`Scene marked as ${status}`);
-  await loadScenes();
+  try {
+    await api(`/api/scenes/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+    toast(`Scene marked as ${status}`);
+    await loadScenes();
+  } catch(e) { toast('Error updating scene: ' + e.message); }
 };
 
 const generateFromScene = async (sceneId) => {
@@ -358,6 +361,28 @@ const generateFromScene = async (sceneId) => {
 };
 
 // ── Generate ──────────────────────────────────────────────────────────────────
+const MODELS      = ['veo3', 'seedance2', 'kling3', 'sora2', 'higgsfield'];
+const RESOLUTIONS = ['480p', '720p', '1080p', '4k'];
+
+const _pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+const resolveModel = (val) => {
+  const v = (val || 'auto').trim().toLowerCase();
+  if (v === 'random') return _pick(MODELS);
+  return MODELS.includes(v) ? v : 'auto';
+};
+
+const resolveResolution = (val) => {
+  const v = (val || '1080p').trim().toLowerCase();
+  if (v === 'random') return _pick(RESOLUTIONS);
+  return RESOLUTIONS.includes(v) ? v : '1080p';
+};
+
+const randomizePick = (inputId, options) => {
+  const inp = el(inputId);
+  if (inp) inp.value = _pick(options);
+};
+
 let _genSceneController = null;
 
 const loadSceneDropdowns = async () => {
@@ -387,10 +412,12 @@ const previewScene = (sceneId) => {
 const startGeneration = async () => {
   const scene_id = parseInt(el('gen-scene').value);
   if (!scene_id) { toast('Select a scene first'); return; }
+  const btn = el('gen-start-btn');
+  btn.disabled = true; btn.textContent = '⏳ Starting…';
   const body = {
     scene_id,
-    model: el('gen-model').value,
-    resolution: el('gen-res').value,
+    model: resolveModel(el('gen-model').value),
+    resolution: resolveResolution(el('gen-res').value),
     generate_voiceover: el('gen-vo').checked,
     generate_captions: el('gen-cap').checked,
   };
@@ -399,7 +426,11 @@ const startGeneration = async () => {
     toast(`Generation started! Video #${resp.video_id}`);
     startPolling(resp.video_id);
     showTab('gallery');
-  } catch(e) { toast('Error: ' + e.message); }
+  } catch(e) {
+    toast('Error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🎬 Start Generation';
+  }
 };
 
 const quickGenerate = async (btn) => {
@@ -413,8 +444,8 @@ const quickGenerate = async (btn) => {
       method: 'POST',
       body: JSON.stringify({
         scene_id,
-        model: el('qs-model').value,
-        resolution: el('qs-res').value,
+        model: resolveModel(el('qs-model').value),
+        resolution: resolveResolution(el('qs-res').value),
         generate_voiceover: el('qs-vo').checked,
         generate_captions: el('qs-cap').checked,
       }),

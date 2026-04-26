@@ -143,24 +143,25 @@
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label>Model</label>
-          <select id="qs-model">
-            <option value="auto">Auto (recommended)</option>
-            <option value="veo3">Veo 3 — Dialogue</option>
-            <option value="seedance2">Seedance 2 — Action</option>
-            <option value="kling3">Kling 3.0 — Transition</option>
-            <option value="sora2">Sora 2 — Montage</option>
-            <option value="higgsfield">Higgsfield</option>
-          </select>
+          <label for="qs-model">Model</label>
+          <div class="flex gap-1">
+            <input class="input" id="qs-model" list="qs-model-list" value="auto" placeholder="auto" style="flex:1;min-width:0;" />
+            <button class="btn-secondary" onclick="randomizePick('qs-model',MODELS)" title="Random" style="padding:10px 10px;flex-shrink:0;">🎲</button>
+          </div>
+          <datalist id="qs-model-list">
+            <option value="random"><option value="auto"><option value="veo3">
+            <option value="seedance2"><option value="kling3"><option value="sora2"><option value="higgsfield">
+          </datalist>
         </div>
         <div>
-          <label>Resolution</label>
-          <select id="qs-res">
-            <option value="1080p">1080p</option>
-            <option value="720p">720p</option>
-            <option value="4k">4K</option>
-            <option value="480p">480p</option>
-          </select>
+          <label for="qs-res">Resolution</label>
+          <div class="flex gap-1">
+            <input class="input" id="qs-res" list="qs-res-list" value="1080p" placeholder="1080p" style="flex:1;min-width:0;" />
+            <button class="btn-secondary" onclick="randomizePick('qs-res',RESOLUTIONS)" title="Random" style="padding:10px 10px;flex-shrink:0;">🎲</button>
+          </div>
+          <datalist id="qs-res-list">
+            <option value="random"><option value="480p"><option value="720p"><option value="1080p"><option value="4k">
+          </datalist>
         </div>
       </div>
       <div class="flex gap-2">
@@ -296,25 +297,29 @@
       </div>
 
       <div>
-        <label>Video Model</label>
-        <select id="gen-model">
-          <option value="auto">Auto (based on scene type)</option>
-          <option value="veo3">Veo 3 — best for dialogue & voiceover</option>
-          <option value="seedance2">Seedance 2 — best for action</option>
-          <option value="kling3">Kling 3.0 — best for transitions</option>
-          <option value="sora2">Sora 2 — best for montages</option>
-          <option value="higgsfield">Higgsfield — general purpose</option>
-        </select>
+        <label for="gen-model">Video Model <span class="font-normal" style="color:#7a3218;">— type or pick</span></label>
+        <div class="flex gap-2">
+          <input class="input" id="gen-model" list="gen-model-list" value="auto" placeholder="auto" style="flex:1;" />
+          <button class="btn-secondary" onclick="randomizePick('gen-model',MODELS)" title="Pick random model" style="padding:10px 12px;flex-shrink:0;">🎲</button>
+        </div>
+        <datalist id="gen-model-list">
+          <option value="random"><option value="auto">
+          <option value="veo3"><option value="seedance2"><option value="kling3"><option value="sora2"><option value="higgsfield">
+        </datalist>
+        <div class="text-xs mt-1" style="color:#7a3218;">
+          veo3 · seedance2 · kling3 · sora2 · higgsfield · auto · random
+        </div>
       </div>
 
       <div>
-        <label>Resolution</label>
-        <select id="gen-res">
-          <option value="1080p">1080p (recommended)</option>
-          <option value="720p">720p — faster</option>
-          <option value="4k">4K — slower, highest quality</option>
-          <option value="480p">480p — fastest</option>
-        </select>
+        <label for="gen-res">Resolution <span class="font-normal" style="color:#7a3218;">— type or pick</span></label>
+        <div class="flex gap-2">
+          <input class="input" id="gen-res" list="gen-res-list" value="1080p" placeholder="1080p" style="flex:1;" />
+          <button class="btn-secondary" onclick="randomizePick('gen-res',RESOLUTIONS)" title="Pick random resolution" style="padding:10px 12px;flex-shrink:0;">🎲</button>
+        </div>
+        <datalist id="gen-res-list">
+          <option value="random"><option value="480p"><option value="720p"><option value="1080p"><option value="4k">
+        </datalist>
       </div>
 
       <div class="flex gap-4">
@@ -330,7 +335,7 @@
         </label>
       </div>
 
-      <button class="btn-primary w-full text-base" onclick="startGeneration()">🎬 Start Generation</button>
+      <button id="gen-start-btn" class="btn-primary w-full text-base" onclick="startGeneration()">🎬 Start Generation</button>
     </div>
 
     <!-- Active jobs -->
