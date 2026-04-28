@@ -69,7 +69,7 @@ const showTab = (name) => {
   if (name === 'projects')  loadProjects();
   if (name === 'characters') loadCharacters();
   if (name === 'scenes')    loadScenes();
-  if (name === 'generate')  { loadSceneDropdowns(); loadGallery(); }
+  if (name === 'generate')  loadSceneDropdowns();
   if (name === 'gallery')   loadGallery();
   if (name === 'settings')  loadApiStatus();
 };
@@ -354,8 +354,8 @@ const updateSceneStatus = async (id, status) => {
 };
 
 const generateFromScene = async (sceneId) => {
+  await loadSceneDropdowns();   // load first so showTab's call is a no-op duplicate
   showTab('generate');
-  await loadSceneDropdowns();
   const sel = el('gen-scene');
   if (sel) { sel.value = sceneId; previewScene(sceneId); }
 };
@@ -530,8 +530,15 @@ const progressPct = (status) => {
 const loadGallery = async () => {
   state.videos = await api('/api/videos').catch(() => []);
   renderGallery();
-  // Resume polling for in-progress jobs
-  state.videos.filter(v => !['completed','failed'].includes(v.status)).forEach(v => startPolling(v.id));
+  // Seed videoStatuses cache so renderActiveJobs isn't blank on first render
+  const inProgress = state.videos.filter(v => !['completed','failed'].includes(v.status));
+  await Promise.allSettled(inProgress.map(async v => {
+    try {
+      const s = await api(`/api/videos/${v.id}/status`);
+      state.videoStatuses[v.id] = s;
+    } catch { /* ignore — renderActiveJobs will show last known state */ }
+  }));
+  inProgress.forEach(v => startPolling(v.id));
   renderActiveJobs();
 };
 
